@@ -58,6 +58,7 @@ These variables will be available in the build environment:
 
 | Variable | Description |
 |----------|-------------|
+| `PHABRICATOR_BRANCH` | Branch of the buildable object (if available).
 | `HARBORMASTER_BUILD_TARGET_PHID` | PHID of the Build Target.
 
 EOTEXT
@@ -177,7 +178,13 @@ EOTEXT
             'revision'));
     }
 
+    $objectbranch = "";
+    if ($object instanceof DifferentialDiff) {
+      $objectbranch = $object->getBranch();
+    }
+    
     $data_structure['build_parameters'] = array(
+      'PHABRICATOR_BRANCH' => $objectbranch,
       'HARBORMASTER_BUILD_TARGET_PHID' => $build_target->getPHID(),
     );
 
