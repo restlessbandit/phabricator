@@ -11,6 +11,7 @@ final class PhabricatorRepositoryCommit
     PhabricatorMentionableInterface,
     HarbormasterBuildableInterface,
     PhabricatorCustomFieldInterface,
+    HarbormasterCircleCIBuildableInterface,
     PhabricatorApplicationTransactionInterface,
     PhabricatorFulltextInterface {
 
@@ -493,4 +494,48 @@ final class PhabricatorRepositoryCommit
     return new DiffusionCommitFulltextEngine();
   }
 
+    /* -(  HarbormasterCircleCIBuildableInterface  )----------------------------- */
+
+
+    public function getCircleCIGitHubRepositoryURI() {
+        $repository = $this->getRepository();
+
+        $commit_phid = $this->getPHID();
+        $repository_phid = $repository->getPHID();
+
+        if ($repository->isHosted()) {
+            throw new Exception(
+                pht(
+                    'This commit ("%s") is associated with a hosted repository '.
+                    '("%s"). Repositories must be imported from GitHub to be built '.
+                    'with CircleCI.',
+                    $commit_phid,
+                    $repository_phid));
+        }
+
+        $remote_uri = $repository->getRemoteURI();
+        $path = HarbormasterCircleCIBuildStepImplementation::getGitHubPath(
+            $remote_uri);
+        if (!$path) {
+            throw new Exception(
+                pht(
+                    'This commit ("%s") is associated with a repository ("%s") that '.
+                    'with a remote URI ("%s") that does not appear to be hosted on '.
+                    'GitHub. Repositories must be hosted on GitHub to be built with '.
+                    'CircleCI.',
+                    $commit_phid,
+                    $repository_phid,
+                    $remote_uri));
+        }
+
+        return $remote_uri;
+    }
+
+    public function getCircleCIBuildIdentifier() {
+        return $this->getCommitIdentifier();
+    }
+
+
+    /* -(  PhabricatorCustomFieldInterface  )------------------------------------ */
+    
 }

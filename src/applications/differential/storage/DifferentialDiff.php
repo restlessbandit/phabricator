@@ -5,6 +5,7 @@ final class DifferentialDiff
   implements
     PhabricatorPolicyInterface,
     HarbormasterBuildableInterface,
+    HarbormasterCircleCIBuildableInterface,
     PhabricatorApplicationTransactionInterface,
     PhabricatorDestructibleInterface {
 
@@ -621,4 +622,63 @@ final class DifferentialDiff
     $this->saveTransaction();
   }
 
+
+    /* -(  HarbormasterCircleCIBuildableInterface  )----------------------------- */
+
+
+    public function getCircleCIGitHubRepositoryURI() {
+        $diff_phid = $this->getPHID();
+        $repository_phid = $this->getRepositoryPHID();
+        if (!$repository_phid) {
+            throw new Exception(
+                pht(
+                              'This diff ("%s") is not associated with a repository. A diff '.
+                              'must belong to a tracked repository to be built by CircleCI.',
+                              $diff_phid));
+        }
+
+        $repository = id(new PhabricatorRepositoryQuery())
+                    ->setViewer(PhabricatorUser::getOmnipotentUser())
+                    ->withPHIDs(array($repository_phid))
+                    ->executeOne();
+        if (!$repository) {
+            throw new Exception(
+                pht(
+                              'This diff ("%s") is associated with a repository ("%s") which '.
+                              'could not be loaded.',
+                              $diff_phid,
+                              $repository_phid));
+        }
+
+        $staging_uri = $repository->getStagingURI();
+        if (!$staging_uri) {
+            throw new Exception(
+                pht(
+                              'This diff ("%s") is associated with a repository ("%s") that '.
+                                        'does not have a Staging Area configured. You must configure a '.
+                              'Staging Area to use CircleCI integration.',
+                              $diff_phid,
+                              $repository_phid));
+        }
+
+        $path = HarbormasterCircleCIBuildStepImplementation::getGitHubPath(
+            $staging_uri);
+        if (!$path) {
+            throw new Exception(
+                pht(
+                              'This diff ("%s") is associated with a repository ("%s") that '.
+                                        'does not have a Staging Area ("%s") that is hosted on GitHub. '.
+                                        'CircleCI can only build from GitHub, so the Staging Area for '.
+                              'the repository must be hosted there.',
+                              $diff_phid,
+                              $repository_phid,
+                              $staging_uri));
+        }
+
+        return $staging_uri;
+    }
+
+    public function getCircleCIBuildIdentifier() {
+        return $this->getStagingRef();
+    }
 }
